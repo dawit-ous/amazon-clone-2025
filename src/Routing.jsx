@@ -6,7 +6,7 @@ import Cart from "../src/Pages/Cart/Cart";
 import ProductDetail from "../src/Pages/ProductDetail/ProductDetail";
 import { Elements } from "@stripe/react-stripe-js";
 import { loadStripe } from "@stripe/stripe-js";
-import ProtectedRoute from '../../../../AMAZONCLONE/amazon-clone/amazon-clone/src/Components/ProtectedRoute/ProtectedRoute'
+import ProtectedRoute from '../src/Components/ProtectedRoute/ProtectedRoute'
 import Auth from './Pages/Auth/Auth';
 import Payment from './Pages/Payment/Payment';
 import Orders from './Pages/Orders/Orders';
