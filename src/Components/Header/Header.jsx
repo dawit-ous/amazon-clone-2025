@@ -33,7 +33,7 @@ const Header = () => {
                 </span>
                 <div>
                   <p>Delivering to </p>
-                  <span>charlotte,NC</span>
+                  <span>ALEXANDRIA</span>
                 </div>
               </div>
             </div>

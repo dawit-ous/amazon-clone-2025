@@ -5,7 +5,6 @@ import { DataContext } from "../../Components/DataProvider/DataProvider";
 import ProductCard from "../../Components/Product/ProductCard";
 import { useStripe, useElements, CardElement } from "@stripe/react-stripe-js";
 import CurrencyFormat from "../../Components/CurrencyFormat/CurrencyFormat";
-import { getApp } from "firebase/app";
 import { axiosInstance } from "../../Components/Api/axios";
 import { ClipLoader } from "react-spinners";
 import { db } from "../../Utility/firebase";
@@ -15,39 +14,42 @@ import { Type } from "../../Utility/action.type";
 
 function Payment() {
   const [{ user, basket }, dispatch] = useContext(DataContext);
-  console.log(user);
   const stripe = useStripe();
   const elements = useElements();
   const [cardError, setCardError] = useState(null);
   const [processing, setProcessing] = useState(false);
   const navigate = useNavigate();
-  // console.log(user);
+
+  // Calculate total price
   const total = basket.reduce((amount, item) => {
     return item.price * item.amount + amount;
   }, 0);
+
+  // Calculate total number of items
   const totalItem = basket?.reduce((amount, item) => {
     return item.amount + amount;
   }, 0);
+
+  // Handle card input change
   const handleChange = (e) => {
     e?.error?.message ? setCardError(e?.error?.message) : setCardError("");
   };
+
+  // Handle payment submission
   const handlePayment = async (e) => {
     e.preventDefault();
     try {
       setProcessing(true);
-      // 1.
-      //backend || functions------>contact to the client secret
+
+      // Step 1: Create Payment Intent from backend
       const response = await axiosInstance({
         method: "POST",
         url: `/payment/create?total=${total * 100}`,
       });
-      console.log(response.data);
-
       const clientSecret = response.data?.ClientSecret;
-
       console.log("Client Secret:", clientSecret);
 
-      // 2. client side (react side confirmation)
+      // Step 2: Confirm payment with Stripe
       const { paymentIntent, error } = await stripe.confirmCardPayment(
         clientSecret,
         {
@@ -59,47 +61,31 @@ function Payment() {
 
       if (error) {
         console.error("Payment confirmation failed:", error.message);
-        return; // Exit the function to avoid referencing undefined variables
+        setProcessing(false);
+        return;
       }
 
       console.log("Payment Intent:", paymentIntent);
       console.log("Payment Intent ID:", paymentIntent?.id);
 
-      // 3. after the confirmation ---->order firestore database save, clear basket
+      // Step 3: Save the order to Firestore
       if (!user || !user.uid) {
         console.error("User is not authenticated or UID is missing.");
+        setProcessing(false);
         return;
       }
 
-      // const orderData = {
-      //   basket: basket, // the items purchased
-      //   amount: paymentIntent.amount, // the amount charged
-      //   created: paymentIntent.created, // timestamp of payment
-      // };
+      const orderData = {
+        basket: basket, // the items purchased
+        amount: paymentIntent.amount, // the amount charged
+        created: paymentIntent.created, // timestamp of payment
+      };
 
       // Write to Firestore
-      // await db
-      //   .collection("user")
-      //   .doc(user.uid) // User document
-      //   .collection("orders") // Orders subcollection
-      //   .doc(paymentIntent.id) // Order ID from payment intent
-      //   .set(orderData);
-      //   console.log("Order successfully written to Firestore:", orderData);
-
-      // Firestore v9 write
-      // const userOrdersRef = collection(db, "users", user.uid, "orders");
-      // const orderDocRef = doc(userOrdersRef, paymentIntent.id); // Unique document ID based on paymentIntent
-      // await setDoc(orderDocRef, orderData);
-
-      // simplified way
       try {
         await setDoc(
           doc(collection(db, "users", user.uid, "orders"), paymentIntent.id),
-          {
-            basket: basket, // the items purchased
-            amount: paymentIntent.amount, // the amount charged
-            created: paymentIntent.created, // timestamp of payment
-          }
+          orderData
         );
         console.log("Order successfully written to Firestore");
       } catch (error) {
@@ -112,32 +98,34 @@ function Payment() {
       });
 
       setProcessing(false);
-      navigate("/orders", { state: { msg: "you have placed a new order" } });
+      navigate("/orders", { state: { msg: "You have placed a new order!" } });
     } catch (error) {
       console.log(error);
       setProcessing(false);
     }
   };
+
   return (
     <LayOut>
-      {/* header */}
+      {/* Header */}
       <div className={classes.payment_header}>Checkout ({totalItem}) items</div>
-      {/* payment method */}
+
+      {/* Payment Section */}
       <section className={classes.payment}>
-        {/* address */}
+        {/* Delivery Address */}
         <div className={classes.flex}>
           <h3>Delivery Address</h3>
           <div>
             <div>{user?.email}</div>
             <div>Matthew</div>
-            <div>Charlotte,NC</div>
+            <div>Charlotte, NC</div>
           </div>
         </div>
         <hr />
 
-        {/* product */}
+        {/* Product Review */}
         <div className={classes.flex}>
-          <h3>Review items and delivery </h3>
+          <h3>Review items and delivery</h3>
           <div className={classes.product_list}>
             {basket?.map((item, i) => (
               <ProductCard product={item} flex={true} key={i} />
@@ -146,30 +134,32 @@ function Payment() {
         </div>
         <hr />
 
-        {/* card form */}
+        {/* Payment Method */}
         <div className={classes.flex}>
           <h3>Payment method</h3>
           <div className={classes.payment_card_container}>
             <div className={classes.payment_details}>
               <form action="" onSubmit={handlePayment}>
-                {/* error */}
+                {/* Error Message */}
                 {cardError && (
                   <small style={{ color: "red" }}>{cardError}</small>
                 )}
-                {/* card element */}
+
+                {/* Card Element */}
                 <CardElement onChange={handleChange} />
-                {/* price */}
+
+                {/* Price */}
                 <div className={classes.payment_price}>
                   <div>
                     <span style={{ display: "flex", gap: "10px" }}>
-                      <p> Total order</p> | <CurrencyFormat amount={total} />
+                      <p>Total order</p> | <CurrencyFormat amount={total} />
                     </span>
                   </div>
                   <button type="submit">
                     {processing ? (
                       <div className={classes.loading}>
                         <ClipLoader color="gray" size={12} />
-                        <p>processing...</p>
+                        <p>Processing...</p>
                       </div>
                     ) : (
                       "Pay Now"

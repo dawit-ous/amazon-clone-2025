@@ -1,75 +1,58 @@
-
-const {onRequest} = require("firebase-functions/v2/https");
+const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const express=require('express');
-const cors=require('cors');
-const dotenv=require('dotenv');
-dotenv.config()
-dotenv.config();
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
-// Check if STRIPE_KEY is being loaded correctly
-// if (!process.env.STRIPE_KEY) {
-//     console.error("STRIPE_KEY is not defined. Check your .env file.");
-// } else {
-//     console.log("Stripe Key Loaded Successfully");
-// }
+dotenv.config(); // Load environment variables
 
-// console.log("Stripe Key:", process.env.STRIPE_KEY); // This should print your key if it's correctly loaded.
-
+// Initialize Stripe with the secret key from .env
 const stripe = require("stripe")(process.env.STRIPE_KEY);
 
-const app=express();
-app.use(cors({origin:true}))
-app.use(express.json())
+// Initialize Express
+const app = express();
+app.use(cors({ origin: true })); // Enable CORS
+app.use(express.json()); // Parse JSON bodies
 
-app.get('/',(req,res)=>{
-    res.status(200).json({
-        message:"Success"
-    })
+// Route for basic health check
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Success",
+  });
 });
 
-app.post('/payment/create',async(req,res)=>{
-    const total=parseInt(req.query.total);
-    if(total>0)
-    {
-        const paymentIntent=await stripe.paymentIntents.create({
-            amount:total,
-            currency:"usd"
-        })
-        console.log(paymentIntent);
-        res.status(201).json({
-            ClientSecret: paymentIntent.client_secret
-        })
-    }else
-    {
-        res.status(403).json({
-            message:"total must be greater than 0"
-        })
-    }
-     if (isNaN(total) || total <= 0) {
-       return res.status(403).json({
-         message: "Total must be a number greater than 0",
-       });
-     }
+// Route for creating payment intent
+app.post("/payment/create", async (req, res) => {
+  const total = parseInt(req.query.total); // Amount in cents (e.g., 5000 = $50)
 
-     try {
-       const paymentIntent = await stripe.paymentIntents.create({
-         amount: total,
-         currency: "usd",
-       });
+  // Validate the total value
+  if (isNaN(total) || total <= 0) {
+    return res.status(403).json({
+      message: "Total must be a number greater than 0",
+    });
+  }
 
-       console.log("Payment Intent Created:", paymentIntent); // Log the payment intent details
+  try {
+    // Create Stripe Payment Intent
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: total,
+      currency: "usd", // Currency is USD
+    });
 
-       res.status(201).json({
-         ClientSecret: paymentIntent.client_secret,
-       });
-     } catch (error) {
-       console.error("Stripe Error:", error); // Log the error details
-       res.status(500).json({
-         message: "Payment failed",
-         error: error.message, // Send the error message to the client
-       });
-     }
-})
+    // Respond with the Client Secret for Stripe
+    logger.log("Payment Intent Created:", paymentIntent);
+    res.status(201).json({
+      ClientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    // Catch Stripe errors and send a response
+    logger.error("Stripe Error:", error.message);
+    res.status(500).json({
+      message: "Payment failed",
+      error: error.message,
+    });
+  }
+});
 
-exports.api=onRequest(app)
+// Export the app as a Firebase function
+exports.api = onRequest(app);
