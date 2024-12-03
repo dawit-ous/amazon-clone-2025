@@ -118,7 +118,7 @@ function Payment() {
           <div>
             <div>{user?.email}</div>
             <div>Matthew</div>
-            <div>Charlotte, NC</div>
+            <div>Alexandria</div>
           </div>
         </div>
         <hr />
